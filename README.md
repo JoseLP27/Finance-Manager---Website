@@ -65,7 +65,6 @@ src/modules/             Una pantalla por módulo
 src/App.jsx              Navegación por hash, configuración y ayuda
 tests/                   Comprobaciones con materiales de clase y casos límite
 docs/FUENTES.md           Trazabilidad académica
-CONTINUIDAD_IA.md         Estado del trabajo y orientación para otro agente
 ```
 
 ## GitHub Pages
