@@ -11,10 +11,13 @@
     "format": "prettier --write src tests *.json *.js *.md docs/*.md .github/workflows/*.yml"
   },
   "dependencies": {
+    "@google/genai": "^3.0.0",
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "recharts": "^3.0.0"
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.0.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",

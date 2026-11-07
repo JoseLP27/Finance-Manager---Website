@@ -22,6 +22,7 @@ import {
 import { useFinance, validateData } from "./lib/store";
 import { download } from "./lib/format";
 import { Panel, Field, Select, Button, Notice } from "./components/UI";
+import { ConfiguracionClaveIA } from "./components/InterpretacionIA";
 import Dashboard from "./modules/Dashboard";
 import Statements from "./modules/Statements";
 import Ratios from "./modules/Ratios";
@@ -416,6 +417,7 @@ export default function App() {
               respaldo antes de borrar el historial o cambiar de dispositivo. No
               se envían a un servidor.
             </Notice>
+            <ConfiguracionClaveIA />
           </div>
         ) : (
           <div className="help-content">
@@ -452,6 +454,15 @@ export default function App() {
               manuales. El crédito se liquida al mes siguiente. La depreciación
               reduce la utilidad, pero no la caja. El EFE registra movimientos
               reales, separados de las proyecciones.
+            </p>
+            <h3>4. Interpreta con IA</h3>
+            <p>
+              Al final de cada módulo, <strong>Interpretación de IA</strong>{" "}
+              envía solo las cifras calculadas a Gemini y devuelve una lectura
+              en Markdown. El asistente interpreta, no decide ni recomienda
+              operaciones. Configura la clave en{" "}
+              <strong>Configurar empresa y moneda → Asistente de IA</strong>; se
+              guarda únicamente en esta sesión del navegador.
             </p>
             <h3>Referencias del proyecto</h3>
             <ul>

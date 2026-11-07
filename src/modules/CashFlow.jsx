@@ -13,6 +13,8 @@ import {
   Export,
   AddButton,
 } from "../components/UI";
+import InterpretacionIA from "../components/InterpretacionIA";
+import { contextoEfe } from "../services/aiContexts";
 export default function CashFlow() {
   const { data, update } = useFinance();
   const [method, setMethod] = useState("direct");
@@ -258,6 +260,14 @@ export default function CashFlow() {
           </Notice>
         )}
       </Panel>
+      <InterpretacionIA
+        modulo="Flujo de efectivo"
+        obtenerContexto={() => contextoEfe(data, p, prev)}
+        habilitado={
+          data.flow.entries.some((e) => e.periodId === p.id) || Boolean(prev)
+        }
+        motivoDeshabilitado="Registra movimientos de efectivo o agrega un período anterior para usar el método indirecto."
+      />
     </div>
   );
 }

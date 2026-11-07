@@ -18,10 +18,13 @@ import {
   Export,
 } from "../components/UI";
 import { BreakEvenChart } from "../components/Charts";
+import InterpretacionIA from "../components/InterpretacionIA";
+import { contextoCvu } from "../services/aiContexts";
 export default function Cvu() {
   const { data, update } = useFinance();
   const c = data.cvu,
-    s = statements(data.periods[data.selected], data.accounts),
+    p = data.periods[data.selected],
+    s = statements(p, data.accounts),
     input = cvuInputs(c, s),
     r = cvu(input);
   const edit = (k, v) =>
@@ -251,6 +254,12 @@ export default function Cvu() {
           tasa de 100% o datos insuficientes.
         </Notice>
       </Panel>
+      <InterpretacionIA
+        modulo="Punto de equilibrio y apalancamiento"
+        obtenerContexto={() => contextoCvu(data, p)}
+        habilitado={r.valid}
+        motivoDeshabilitado="Completa unidades, precio y costos para generar una interpretación del C-V-U."
+      />
     </div>
   );
 }

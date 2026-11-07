@@ -21,6 +21,8 @@ import {
   Empty,
   chartColors,
 } from "../components/UI";
+import InterpretacionIA from "../components/InterpretacionIA";
+import { contextoPersonal } from "../services/aiContexts";
 export default function Personal() {
   const { data, update } = useFinance();
   const p = personalTotals(data.personal),
@@ -182,6 +184,12 @@ export default function Personal() {
           )}
         </Panel>
       </div>
+      <InterpretacionIA
+        modulo="Presupuesto personal"
+        obtenerContexto={() => contextoPersonal(data)}
+        habilitado={data.personal.length > 0}
+        motivoDeshabilitado="Agrega al menos un ingreso o gasto personal para generar la interpretación."
+      />
     </div>
   );
 }

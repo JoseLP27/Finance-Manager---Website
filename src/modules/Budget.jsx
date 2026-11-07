@@ -14,6 +14,8 @@ import {
   AddButton,
 } from "../components/UI";
 import { TrendChart } from "../components/Charts";
+import InterpretacionIA from "../components/InterpretacionIA";
+import { contextoPresupuesto } from "../services/aiContexts";
 export default function Budget() {
   const { data, update } = useFinance();
   const [tab, setTab] = useState("inputs");
@@ -352,6 +354,12 @@ export default function Budget() {
           completar el presupuesto. Los resultados actuales son parciales.
         </Notice>
       )}
+      <InterpretacionIA
+        modulo="Presupuesto maestro"
+        obtenerContexto={() => contextoPresupuesto(data, p)}
+        habilitado={r.valid}
+        motivoDeshabilitado="Ingresa precio de venta y costo unitario mayores que cero para interpretar el presupuesto."
+      />
     </div>
   );
 }

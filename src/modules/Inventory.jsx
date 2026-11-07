@@ -11,6 +11,8 @@ import {
   AddButton,
   Empty,
 } from "../components/UI";
+import InterpretacionIA from "../components/InterpretacionIA";
+import { contextoInventario } from "../services/aiContexts";
 export default function Inventory() {
   const { data, update } = useFinance();
   const rows = data.inventory.map((x) => ({ ...x, ...stock(x) })),
@@ -172,6 +174,12 @@ export default function Inventory() {
           />
         </div>
       </Panel>
+      <InterpretacionIA
+        modulo="Control de inventario"
+        obtenerContexto={() => contextoInventario(data)}
+        habilitado={data.inventory.length > 0}
+        motivoDeshabilitado="Agrega al menos un producto para interpretar existencias y alertas."
+      />
     </div>
   );
 }

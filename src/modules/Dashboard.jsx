@@ -22,6 +22,8 @@ import {
 import { money, percent, times } from "../lib/format";
 import { Panel, Metric, Notice, Empty, Button } from "../components/UI";
 import { TrendChart } from "../components/Charts";
+import InterpretacionIA from "../components/InterpretacionIA";
+import { contextoPanel } from "../services/aiContexts";
 export default function Dashboard({ navigate, modules }) {
   const { data } = useFinance();
   const p = data.periods[data.selected],
@@ -231,6 +233,14 @@ export default function Dashboard({ navigate, modules }) {
             </button>
           ))}
       </div>
+      <InterpretacionIA
+        modulo="Panel principal"
+        obtenerContexto={() =>
+          contextoPanel(data, p, data.periods[data.selected - 1])
+        }
+        habilitado={hasData}
+        motivoDeshabilitado="Registra tus estados financieros para generar una interpretación del panel."
+      />
     </div>
   );
 }

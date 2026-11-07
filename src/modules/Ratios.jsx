@@ -2,6 +2,8 @@ import { useFinance } from "../lib/store";
 import { ratios, statements } from "../lib/finance";
 import { money, number, percent, times } from "../lib/format";
 import { Panel, Notice, Table, Metric, Export } from "../components/UI";
+import InterpretacionIA from "../components/InterpretacionIA";
+import { contextoRazones, hayDatosEnPeriodo } from "../services/aiContexts";
 export default function Ratios() {
   const { data } = useFinance();
   const p = data.periods[data.selected],
@@ -241,6 +243,12 @@ export default function Ratios() {
         crédito. Captura el porcentaje de ventas a crédito y las compras a
         crédito en el estado de resultados para obtener PPC y PPP.
       </Notice>
+      <InterpretacionIA
+        modulo="Razones y DuPont"
+        obtenerContexto={() => contextoRazones(data, p, previous)}
+        habilitado={hayDatosEnPeriodo(p)}
+        motivoDeshabilitado="Registra un balance y un estado de resultados para calcular las razones."
+      />
     </div>
   );
 }

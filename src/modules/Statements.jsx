@@ -20,6 +20,8 @@ import {
   Export,
   AddButton,
 } from "../components/UI";
+import InterpretacionIA from "../components/InterpretacionIA";
+import { contextoEstados, hayDatosEnPeriodo } from "../services/aiContexts";
 export default function Statements() {
   const { data, update } = useFinance();
   const [tab, setTab] = useState("balance");
@@ -28,6 +30,7 @@ export default function Statements() {
   const [group, setGroup] = useState("current");
   const index = data.selected,
     p = data.periods[index],
+    anterior = data.periods[index - 1],
     s = statements(p, data.accounts),
     prev = data.periods[Math.min(base, data.periods.length - 1)],
     ps = statements(prev, data.accounts);
@@ -330,6 +333,12 @@ export default function Statements() {
           </Notice>
         </Panel>
       )}
+      <InterpretacionIA
+        modulo="Estados financieros"
+        obtenerContexto={() => contextoEstados(data, p, anterior)}
+        habilitado={hayDatosEnPeriodo(p)}
+        motivoDeshabilitado="Registra al menos un saldo o resultado en este período para generar la interpretación."
+      />
     </div>
   );
 }

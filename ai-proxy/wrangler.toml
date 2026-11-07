@@ -1,0 +1,14 @@
+name = "finance-manager-ai"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# El Worker solo acepta estos orígenes. CORS es un control del navegador:
+# no impide que alguien llame al endpoint por fuera, por eso también conviene
+# limitar la cuota y el presupuesto de la clave en Google AI Studio.
+[vars]
+ALLOWED_ORIGINS = "https://joselp27.github.io,http://127.0.0.1:5173,http://localhost:5173"
+ALLOWED_MODELS = "gemini-3.8-flash"
+
+# Secretos (no se escriben aquí):
+#   npx wrangler secret put GEMINI_API_KEY
+#   npx wrangler secret put PROXY_TOKEN        # opcional

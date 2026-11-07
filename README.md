@@ -33,6 +33,25 @@ npm run preview
 6. **Presupuesto maestro:** ventas, compras, inventario, costo de ventas, gastos, resultados y calendario de caja. Modo vinculado a estados o manual.
 7. **Personal:** ingresos, gastos fijos/variables, ahorro y gráfico circular; independiente de la empresa.
 8. **Inventario:** existencias, valoración y alerta de reposición; aplicación complementaria.
+9. **Interpretación de IA:** al final de cada módulo, un botón envía solo los resultados ya calculados a Gemini y muestra una lectura en Markdown. No decide ni recomienda operaciones.
+
+## Asistente de IA (Gemini)
+
+Cada módulo incluye una tarjeta **Interpretación de IA**. El botón se desactiva si el módulo no tiene datos y muestra el motivo. Al abrirlo, la app envía únicamente el resumen de cifras calculadas (no el respaldo completo ni datos personales) y presenta la respuesta en Markdown.
+
+La app admite dos modos:
+
+1. **Proxy propio (recomendado para el sitio publicado).** La clave de Gemini vive como secreto del servidor y nunca llega al navegador. El Worker incluido en `ai-proxy/` recibe la solicitud, valida el origen y el tamaño, agrega la clave y llama a Gemini. Instrucciones en [`ai-proxy/README.md`](ai-proxy/README.md). En GitHub solo se configura la variable `AI_PROXY_URL` (y opcionalmente `AI_PROXY_TOKEN`); **nunca** `VITE_GEMINI_API_KEY`.
+2. **Modo directo (solo desarrollo local o uso personal).** La clave se ingresa en **Configuración → Asistente de IA** y se guarda en `sessionStorage`: desaparece al cerrar la pestaña y no se incluye en los respaldos JSON. También se puede definir en `.env.local` (copia `.env.example`):
+
+```sh
+VITE_GEMINI_API_KEY=tu_clave
+VITE_GEMINI_MODEL=gemini-3.8-flash
+```
+
+**Advertencia de seguridad:** cualquier variable `VITE_` se inserta en el JavaScript publicado y puede leerse desde el navegador. No publiques `VITE_GEMINI_API_KEY` en GitHub Pages: usa el proxy. Si una clave se comparte por chat o se publica, rótala y limita su cuota en Google AI Studio.
+
+El modelo predeterminado es `gemini-3.8-flash`, el reemplazo de `gemini-3.6-flash` (retirado en Vertex AI el **19 de noviembre de 2026**). Puedes cambiarlo sin tocar el código con `VITE_GEMINI_MODEL` o con la variable `AI_MODEL` del repositorio. El prompt del sistema limita la respuesta a interpretación: no emite decisiones, órdenes ni asesoría legal, tributaria o de inversión.
 
 ## Flujo de uso
 
@@ -60,10 +79,14 @@ src/lib/finance.js        Cálculos financieros puros
 src/lib/store.jsx         Estado compartido y guardado local
 src/lib/validation.js     Validación de respaldos
 src/lib/format.js         Moneda, porcentajes, CSV y descargas
-src/components/          Controles y gráficas reutilizables
+src/services/aiService.js Cliente de Gemini, prompt y manejo de la clave
+src/services/aiContexts.js Resúmenes por módulo enviados al modelo
+src/components/          Controles, gráficas e InterpretacionIA reutilizables
 src/modules/             Una pantalla por módulo
 src/App.jsx              Navegación por hash, configuración y ayuda
+ai-proxy/                Worker de Cloudflare que guarda la clave de Gemini
 tests/                   Comprobaciones con materiales de clase y casos límite
+.env.example             Plantilla de variables de entorno (sin clave real)
 docs/FUENTES.md           Trazabilidad académica
 ```
 
@@ -73,6 +96,6 @@ El workflow `.github/workflows/deploy.yml` ejecuta pruebas y compilación al sub
 
 ## Verificación
 
-`npm test` verifica TOR, Bartlett, DuPont, Electrónicas, El Progreso, San Rafael, EFE, independencia de datos personales, integración de cambios, divisiones por cero, pérdidas, exceso de inventario y respaldos inválidos. Las cifras de prueba no se importan en la aplicación y no se incluyen en su paquete de producción.
+`npm test` verifica TOR, Bartlett, DuPont, Electrónicas, El Progreso, San Rafael, EFE, independencia de datos personales, integración de cambios, divisiones por cero, pérdidas, exceso de inventario, respaldos inválidos y los resúmenes que se envían al asistente de IA. Las cifras de prueba no se importan en la aplicación y no se incluyen en su paquete de producción.
 
 Sitio académico independiente. El logotipo UNI fue proporcionado por el usuario y se incorpora sin alterar sus proporciones ni colores; su presencia identifica el contexto universitario y no implica que el sitio sea oficial.

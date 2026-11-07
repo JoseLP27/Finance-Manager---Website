@@ -4,3 +4,6 @@ dist/
 *.local
 tmp/
 docs/reference-extracts/
+.env
+.env.*
+!.env.example

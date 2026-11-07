@@ -20,6 +20,23 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # La clave de Gemini NO se configura aquí: quedaría visible en el sitio.
+      # El asistente usa el proxy cuyo URL se guarda en la variable AI_PROXY_URL.
+      - name: Configurar asistente de IA
+        env:
+          AI_PROXY_URL: ${{ vars.AI_PROXY_URL }}
+          AI_PROXY_TOKEN: ${{ vars.AI_PROXY_TOKEN }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+        run: |
+          echo "VITE_GEMINI_MODEL=${AI_MODEL:-gemini-3.8-flash}" >> "$GITHUB_ENV"
+          if [ -n "$AI_PROXY_URL" ]; then
+            echo "VITE_AI_PROXY_URL=$AI_PROXY_URL" >> "$GITHUB_ENV"
+          else
+            echo "::warning::AI_PROXY_URL no está configurado. El asistente pedirá una clave en el navegador."
+          fi
+          if [ -n "$AI_PROXY_TOKEN" ]; then
+            echo "VITE_AI_PROXY_TOKEN=$AI_PROXY_TOKEN" >> "$GITHUB_ENV"
+          fi
       - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v5
