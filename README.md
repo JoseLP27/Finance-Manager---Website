@@ -4,6 +4,8 @@ Aplicación académica de análisis y planeación financiera para Gestión Finan
 
 **El sitio comienza desde cero, sin empresas ni cifras precargadas.** Los materiales de `../Archivos claves` se utilizan como referencia de fórmulas y como comprobaciones automatizadas, según la aclaración del usuario.
 
+**Sitio publicado:** https://joselp27.github.io/Finance-Manager---Website/
+
 ## Ejecutar
 
 Requiere Node.js 22.12 o superior.

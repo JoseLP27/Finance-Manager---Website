@@ -27,7 +27,11 @@ Consultar los originales en `../Archivos claves`. NO inventar cifras atribuyénd
 - Pasaron 14 pruebas automatizadas, incluidos ejercicios originales y validación de respaldos. Compilación de producción comprobada; ejecutar de nuevo si hay cambios.
 - Verificación real en navegador: captura de balance/resultados, DuPont 20%/ROA 12%, persistencia tras recargar, gráfica C-V-U, presupuesto de caja, gasto personal y alerta de reposición. Pantalla móvil de 390 px sin desbordamiento horizontal en inventario; escritorio de 1440 px revisado.
 - Se retiraron los importes temporales usados para pruebas de interfaz; el código de producción nunca contiene fixtures.
-- Pendiente en este punto: terminar comprobaciones finales, commit/push y verificar el workflow de GitHub Pages. Actualizar el estado de publicación al terminar.
+- Código subido a `main`, commit inicial `b634a91`. Las pruebas y compilación pasaron también en GitHub Actions.
+- El primer workflow falló solo en configurar Pages porque no estaba habilitado. El usuario autorizó explícitamente habilitar Pages y reiniciar la publicación usando su autenticación local de GitHub. Se habilitó correctamente y se reinició el workflow `42334723873`.
+- **Publicación completada y verificada:** `https://joselp27.github.io/Finance-Manager---Website/`. Workflow `42334723873`, intento 2, terminó `success`. Se abrió la URL pública en navegador y se verificó el panel vacío, los accesos a módulos y el logotipo UNI.
+- No quedan tareas obligatorias de implementación/publicación pendientes. El último commit documental no cambia el sitio compilado; puede usar `[skip ci]` para no repetir un despliegue idéntico.
+- Ver detalle y límites de la verificación en `docs/VERIFICACION.md`.
 
 ## Cómo continuar
 
