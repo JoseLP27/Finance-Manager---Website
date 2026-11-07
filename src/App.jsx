@@ -457,12 +457,16 @@ export default function App() {
             </p>
             <h3>4. Interpreta con IA</h3>
             <p>
-              Al final de cada módulo, <strong>Interpretación de IA</strong>{" "}
-              envía solo las cifras calculadas a Gemini y devuelve una lectura
-              en Markdown. El asistente interpreta, no decide ni recomienda
-              operaciones. Configura la clave en{" "}
-              <strong>Configurar empresa y moneda → Asistente de IA</strong>; se
-              guarda únicamente en esta sesión del navegador.
+              Al final de cada módulo, <strong>Visión con IA</strong> envía solo
+              las cifras calculadas a Gemini y devuelve una lectura en Markdown.
+              El asistente interpreta, no decide ni recomienda operaciones. La
+              primera vez que uses el botón te pedirá la clave; también puedes
+              agregarla en{" "}
+              <strong>
+                Configurar empresa y moneda → Clave API de Gemini para la visión
+                de IA
+              </strong>
+              . Se guarda únicamente en esta sesión del navegador.
             </p>
             <h3>Referencias del proyecto</h3>
             <ul>

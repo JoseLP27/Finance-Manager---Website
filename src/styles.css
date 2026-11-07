@@ -1820,9 +1820,12 @@ tbody tr:hover {
   width: 780px;
   max-height: 88vh;
   padding: 0;
-  display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+/* Un <dialog> cerrado debe ocultarse aunque el autor defina display. */
+.ai-modal:not([open]) {
+  display: none;
 }
 .ai-modal[open] {
   display: flex;
@@ -1933,6 +1936,10 @@ tbody tr:hover {
   font-size: 11px;
   line-height: 1.7;
   color: #7890ae;
+}
+.ai-key-form .ai-key-next {
+  color: #2d63b8;
+  font-weight: 600;
 }
 .ai-key-icon {
   display: inline-flex;

@@ -50,6 +50,9 @@ function FormularioClave({ onGuardada, onCancelar }) {
         resultados. Se guarda solo en esta sesión del navegador y no se envía a
         ningún servidor propio.
       </p>
+      <p className="ai-key-next">
+        Al guardarla, el análisis de este módulo se iniciará automáticamente.
+      </p>
       <Field
         label="Clave de API de Gemini"
         type={visible ? "text" : "password"}
@@ -73,9 +76,8 @@ function FormularioClave({ onGuardada, onCancelar }) {
       </div>
       {error && <p className="ai-error-text">{error}</p>}
       <p className="ai-helper">
-        También puedes definir <code>VITE_GEMINI_API_KEY</code> en un archivo{" "}
-        <code>.env.local</code> antes de ejecutar la app. No publiques la clave
-        en GitHub Pages.
+        También puedes agregar o eliminar tu clave desde Ajustes. Al analizar,
+        se enviarán las cifras de este módulo a Gemini.
       </p>
     </div>
   );
@@ -91,7 +93,7 @@ export function ConfiguracionClaveIA({ onGuardada }) {
   if (usaProxyIA()) {
     return (
       <div className="ai-key-config">
-        <h3>Asistente de IA</h3>
+        <h3>Clave API de Gemini para la visión de IA</h3>
         <Notice>
           El asistente usa un <strong>proxy seguro</strong>. La clave de Gemini
           vive en el servidor del proxy y no se incluye en esta página, así que
@@ -109,7 +111,7 @@ export function ConfiguracionClaveIA({ onGuardada }) {
   if (claveDesdeEntorno()) {
     return (
       <div className="ai-key-config">
-        <h3>Asistente de IA</h3>
+        <h3>Clave API de Gemini para la visión de IA</h3>
         <Notice>
           La clave se está leyendo de <code>VITE_GEMINI_API_KEY</code>. El
           modelo configurado es <strong>{MODELO_IA}</strong>.
@@ -145,11 +147,12 @@ export function ConfiguracionClaveIA({ onGuardada }) {
 
   return (
     <div className="ai-key-config">
-      <h3>Asistente de IA</h3>
+      <h3>Clave API de Gemini para la visión de IA</h3>
       <p className="ai-helper">
         Modelo: <strong>{MODELO_IA}</strong>. La clave se guarda en{" "}
         <code>sessionStorage</code>: desaparece al cerrar esta pestaña y no se
-        incluye en los respaldos JSON.
+        incluye en los respaldos JSON. Si no la agregas aquí, el botón{" "}
+        <strong>Visión con IA</strong> te la pedirá al usarlo por primera vez.
       </p>
       <Field
         label="Clave de API de Gemini"
@@ -192,14 +195,18 @@ export default function InterpretacionIA({
   const [error, setError] = useState("");
   const [copiado, setCopiado] = useState(false);
   const dialogRef = useRef(null);
+  const triggerRef = useRef(null);
   const peticionRef = useRef(0);
   const viaProxy = usaProxyIA();
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (abierto && !dialog.open) dialog.showModal();
-    if (!abierto && dialog.open) dialog.close();
+    if (!abierto || !dialog) return;
+    if (!dialog.open) dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+      triggerRef.current?.focus();
+    };
   }, [abierto]);
 
   useEffect(
@@ -242,7 +249,16 @@ export default function InterpretacionIA({
   const abrir = () => {
     setAbierto(true);
     setError("");
-    if (tieneClaveIA() && !resultado && !cargando) analizar();
+    // Una nueva apertura interpreta los datos actuales, no un resultado anterior.
+    setResultado("");
+    if (tieneClaveIA()) analizar();
+  };
+
+  const cerrar = () => {
+    // Una respuesta tardía nunca debe reactivar el cuadro ya cerrado.
+    peticionRef.current += 1;
+    setCargando(false);
+    setAbierto(false);
   };
 
   const copiar = async () => {
@@ -277,12 +293,13 @@ export default function InterpretacionIA({
           title={habilitado ? `Analizar ${modulo}` : motivoDeshabilitado}
         >
           <Button
+            ref={triggerRef}
             onClick={abrir}
             disabled={!habilitado || cargando}
             aria-describedby={`ai-help-${modulo}`}
           >
             <Sparkles size={16} />
-            {cargando ? "Analizando..." : "Interpretación de IA"}
+            {cargando ? "Analizando..." : "Visión con IA"}
           </Button>
         </span>
         <small id={`ai-help-${modulo}`} className="ai-disabled-note">
@@ -292,105 +309,104 @@ export default function InterpretacionIA({
         </small>
       </section>
 
-      <dialog
-        ref={dialogRef}
-        className="modal ai-modal"
-        onCancel={() => setAbierto(false)}
-        onClose={() => setAbierto(false)}
-        aria-labelledby="ai-modal-title"
-      >
-        <div className="modal-header">
-          <div>
-            <span className="ai-kicker">
-              <Sparkles size={15} /> {MODELO_IA}
-              {viaProxy ? " · proxy" : ""}
-            </span>
-            <h2 id="ai-modal-title">Interpretación financiera con IA</h2>
-          </div>
-          <button
-            className="icon-button"
-            aria-label="Cerrar interpretación"
-            onClick={() => setAbierto(false)}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="ai-modal-body">
-          {!tieneClaveIA() ? (
-            <FormularioClave
-              onGuardada={analizar}
-              onCancelar={() => setAbierto(false)}
-            />
-          ) : cargando ? (
-            <div className="ai-loading" role="status" aria-live="polite">
-              <span className="ai-spinner" aria-hidden="true" />
-              <h3>Analizando el módulo de {modulo.toLowerCase()}...</h3>
-              <p>
-                {MODELO_IA} está evaluando la posición financiera. Esto puede
-                tardar unos segundos.
-              </p>
+      {abierto && (
+        <dialog
+          ref={dialogRef}
+          className="modal ai-modal"
+          onCancel={cerrar}
+          onClose={cerrar}
+          aria-labelledby="ai-modal-title"
+        >
+          <div className="modal-header">
+            <div>
+              <span className="ai-kicker">
+                <Sparkles size={15} /> {MODELO_IA}
+                {viaProxy ? " · proxy" : ""}
+              </span>
+              <h2 id="ai-modal-title">Interpretación financiera con IA</h2>
             </div>
-          ) : error ? (
-            <div className="ai-error">
-              <Notice tone="warning">{error}</Notice>
-              {!viaProxy && error.includes("clave") && (
-                <FormularioClave onGuardada={analizar} />
-              )}
-              <div className="button-row">
-                <Button secondary onClick={analizar}>
-                  <RefreshCw size={16} /> Reintentar
+            <button
+              className="icon-button"
+              aria-label="Cerrar interpretación"
+              onClick={cerrar}
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="ai-modal-body">
+            {!tieneClaveIA() ? (
+              <FormularioClave onGuardada={analizar} onCancelar={cerrar} />
+            ) : cargando ? (
+              <div className="ai-loading" role="status" aria-live="polite">
+                <span className="ai-spinner" aria-hidden="true" />
+                <h3>Analizando el módulo de {modulo.toLowerCase()}...</h3>
+                <p>
+                  {MODELO_IA} está evaluando la posición financiera. Esto puede
+                  tardar unos segundos.
+                </p>
+              </div>
+            ) : error ? (
+              <div className="ai-error">
+                <Notice tone="warning">{error}</Notice>
+                {!viaProxy && error.includes("clave") && (
+                  <FormularioClave onGuardada={analizar} />
+                )}
+                <div className="button-row">
+                  <Button secondary onClick={analizar}>
+                    <RefreshCw size={16} /> Reintentar
+                  </Button>
+                </div>
+              </div>
+            ) : resultado ? (
+              <div className="ai-markdown">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ node, ...props }) => (
+                      <a {...props} target="_blank" rel="noreferrer" />
+                    ),
+                  }}
+                >
+                  {resultado}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <div className="ai-empty">
+                <Sparkles size={26} />
+                <h3>Listo para interpretar</h3>
+                <p>
+                  Se enviarán las cifras ya calculadas de {modulo} a {MODELO_IA}
+                  . No se envía tu respaldo completo.
+                </p>
+                <Button onClick={analizar}>
+                  <Sparkles size={16} /> Generar interpretación
                 </Button>
               </div>
-            </div>
-          ) : resultado ? (
-            <div className="ai-markdown">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  a: ({ node, ...props }) => (
-                    <a {...props} target="_blank" rel="noreferrer" />
-                  ),
-                }}
-              >
-                {resultado}
-              </ReactMarkdown>
-            </div>
-          ) : (
-            <div className="ai-empty">
-              <Sparkles size={26} />
-              <h3>Listo para interpretar</h3>
-              <p>
-                Se enviarán las cifras ya calculadas de {modulo} a {MODELO_IA}.
-                No se envía tu respaldo completo.
-              </p>
-              <Button onClick={analizar}>
-                <Sparkles size={16} /> Generar interpretación
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <div className="ai-modal-footer">
-          <span className="ai-disclaimer">
-            Generado con IA a partir de los datos registrados. No es asesoría
-            financiera ni una decisión.
-          </span>
-          <div className="button-row">
-            {resultado && !cargando && (
-              <>
-                <Button secondary onClick={copiar}>
-                  {copiado ? <Check size={16} /> : <Copy size={16} />}
-                  {copiado ? "Copiado" : "Copiar"}
-                </Button>
-                <Button secondary onClick={analizar}>
-                  <RefreshCw size={16} /> Regenerar
-                </Button>
-              </>
             )}
           </div>
-        </div>
-      </dialog>
+
+          <div className="ai-modal-footer">
+            <span className="ai-disclaimer">
+              Generado con IA a partir de los datos registrados. No es asesoría
+              financiera ni una decisión.
+            </span>
+            <div className="button-row">
+              {resultado && !cargando && (
+                <>
+                  <Button secondary onClick={copiar}>
+                    {copiado ? <Check size={16} /> : <Copy size={16} />}
+                    {copiado ? "Copiado" : "Copiar"}
+                  </Button>
+                  <Button secondary onClick={analizar}>
+                    <RefreshCw size={16} /> Regenerar
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </dialog>
+      )}
     </>
   );
 }

@@ -1,5 +1,13 @@
 # Verificación de la aplicación
 
+## Corrección del formulario de IA — 7 de noviembre de 2026
+
+- El diálogo de IA solo se monta al pulsar «Visión con IA». Los diálogos cerrados no reciben estilos que los hagan visibles.
+- Verificado en navegador: apertura bajo solicitud, cierre con X, Cancelar y Escape, reapertura y campo de clave disponible desde Ajustes.
+- Recorridos los ocho espacios de la aplicación sin cuadros de IA superpuestos; consola sin errores durante la prueba.
+- Al cerrar se descartan respuestas pendientes; una nueva apertura utiliza el contexto actual. El formulario se desmonta para no conservar una clave sin guardar.
+- 29 pruebas automatizadas aprobadas y compilación correcta. No se realizó una consulta real a Gemini ni se introdujeron claves privadas durante esta verificación.
+
 Fecha de trabajo: 6 de noviembre de 2026, Managua.
 
 ## Cálculos y compilación
