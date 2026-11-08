@@ -19,6 +19,7 @@ import {
   Button,
   Export,
   AddButton,
+  Metric,
 } from "../components/UI";
 import InterpretacionIA from "../components/InterpretacionIA";
 import { contextoEstados, hayDatosEnPeriodo } from "../services/aiContexts";
@@ -39,6 +40,25 @@ export default function Statements() {
       d.periods[index][section][key] = value;
     });
   const mf = (v) => money(v, data.currency);
+  const balanceLoaded = Object.values(p.balance).some(
+    (v) => v !== "" && v != null,
+  );
+  const balanceRows = [
+    ...Object.entries(accountGroups).flatMap(([groupId, label]) => [
+      ...data.accounts
+        .filter((a) => a.group === groupId)
+        .map((a) => [
+          a.label,
+          num(p.balance[a.id]) * (a.id === "accDep" ? -1 : 1),
+        ]),
+      [`Total ${label.toLowerCase()}`, s[groupId]],
+    ]),
+    ["TOTAL ACTIVOS", s.assets],
+    ["TOTAL PASIVOS", s.liabilities],
+    ["TOTAL PATRIMONIO", s.equity],
+    ["TOTAL PASIVOS + PATRIMONIO", s.liabilities + s.equity],
+    ["Diferencia: activos − pasivos − patrimonio", s.difference],
+  ];
   const resultRows = [
     ["Ventas netas", "sales"],
     ["Costo de ventas", "cogs"],
@@ -191,6 +211,62 @@ export default function Statements() {
       </div>
       {tab === "balance" && (
         <>
+          <Panel
+            title="Resultado del balance general"
+            subtitle={`${data.company || "Empresa sin nombre"} · ${p.label}. Se actualiza automáticamente al ingresar o cambiar los saldos.`}
+            action={
+              <Export
+                name="balance-general.csv"
+                headers={["Cuenta", data.currency]}
+                rows={balanceRows}
+              />
+            }
+          >
+            <div className="metrics-grid">
+              <Metric
+                label="Total activos"
+                value={mf(s.assets)}
+                detail="Bienes y derechos"
+              />
+              <Metric
+                label="Total pasivos"
+                value={mf(s.liabilities)}
+                detail="Obligaciones de la empresa"
+              />
+              <Metric
+                label="Total patrimonio"
+                value={mf(s.equity)}
+                detail="Capital, reservas y utilidades"
+              />
+              <Metric
+                label="Pasivos + patrimonio"
+                value={mf(s.liabilities + s.equity)}
+                detail="Debe coincidir con los activos"
+                tone="blue"
+              />
+            </div>
+            <Notice
+              tone={
+                balanceLoaded && Math.abs(s.difference) > 0.005
+                  ? "warning"
+                  : "info"
+              }
+            >
+              {!balanceLoaded
+                ? "Sin saldos registrados. Ingresa las cuentas para obtener el resultado del balance."
+                : Math.abs(s.difference) <= 0.005
+                  ? `Balance cuadrado: ${mf(s.assets)} = ${mf(s.liabilities)} + ${mf(s.equity)}. Diferencia: ${mf(s.difference)}.`
+                  : `Balance descuadrado. Activos − (pasivos + patrimonio) = ${mf(s.difference)}.`}
+            </Notice>
+            <details className="financial-report">
+              <summary>Ver balance completo por cuentas</summary>
+              <Table
+                caption={`Balance general de ${p.label}`}
+                headers={["Cuenta", data.currency]}
+                rows={balanceRows.map(([label, value]) => [label, mf(value)])}
+              />
+            </details>
+          </Panel>
           <Notice tone={Math.abs(s.difference) > 0.005 ? "warning" : "info"}>
             {Math.abs(s.difference) > 0.005
               ? `El balance no cuadra: diferencia de ${mf(s.difference)}. Revisa activos, pasivos y patrimonio.`

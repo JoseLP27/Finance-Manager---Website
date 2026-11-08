@@ -1,4 +1,17 @@
 @import "tailwindcss";
+.financial-report {
+  margin-top: 20px;
+}
+.financial-report summary {
+  cursor: pointer;
+  padding: 12px 0;
+  color: #2154b6;
+  font-weight: 600;
+}
+.financial-report summary:focus-visible {
+  outline: 2px solid #6799e0;
+  outline-offset: 3px;
+}
 @theme {
   --font-sans: "Segoe UI", "Inter", Arial, sans-serif;
   --color-brand: #2154b6;

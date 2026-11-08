@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useFinance } from "../lib/store";
-import { plan, blankMonth, num } from "../lib/finance";
+import { plan, blankMonth, num, sum } from "../lib/finance";
 import { money, number } from "../lib/format";
 import {
   Panel,
@@ -91,6 +91,38 @@ export default function Budget() {
       type === "units" ? number(rowValue(row, key)) : mf(rowValue(row, key)),
     ),
   ]);
+  // Los flujos se suman; los saldos representan apertura o cierre, nunca su suma.
+  const summaryDefinitions = [
+    ["Ventas presupuestadas", "sales"],
+    ["Compras presupuestadas", "purchases"],
+    ["Costo de ventas", "cogs"],
+    ["Gastos desembolsables", "expense"],
+    ["Depreciación", "depreciation"],
+    ["UAII / utilidad operativa", "ebit"],
+    ["Intereses", "interest"],
+    ["Impuestos", "tax"],
+    ["Utilidad neta presupuestada", "net"],
+    ["Cobros a clientes", "collections"],
+    ["Pagos a proveedores", "payments"],
+    ["Otras entradas de caja", "otherIn"],
+    ["Gastos, intereses, impuestos y otras salidas", "otherOut"],
+    ["Saldo inicial de caja", "openingCash", "opening"],
+    ["Saldo final de caja", "closingCash", "closing"],
+  ];
+  const summaryRows = summaryDefinitions.map(([label, key, kind]) => [
+    label,
+    ...r.rows.map((row) => num(row[key])),
+    kind === "opening"
+      ? r.initialCash
+      : kind === "closing"
+        ? r.rows.at(-1)?.closingCash
+        : sum(r.rows.map((row) => row[key])),
+  ]);
+  const summaryHeaders = [
+    "Concepto",
+    ...r.rows.map((row) => row.label),
+    "Total / saldo del plan",
+  ];
   return (
     <div className="module-stack">
       <Notice>
@@ -126,6 +158,50 @@ export default function Budget() {
           tone={r.rows.some((x) => x.need > 0) ? "amber" : "blue"}
         />
       </div>
+      <Panel
+        title="Resultados de planeación y presupuesto"
+        subtitle={`${b.months.length} meses · Base: ${b.linked ? p.label : "supuestos manuales"}. Resultados calculados automáticamente con los datos ingresados.`}
+        action={
+          <Export
+            name="resultados-planeacion-presupuesto.csv"
+            headers={summaryHeaders}
+            rows={summaryRows}
+          />
+        }
+      >
+        {!r.valid && (
+          <Notice tone="warning">
+            Resultados parciales: completa precio de venta y costo unitario en
+            Supuestos. Los campos vacíos se consideran cero.
+          </Notice>
+        )}
+        <Table
+          caption="Resultados consolidados de planeación y presupuesto"
+          headers={summaryHeaders}
+          rows={summaryRows.map(([label, ...values]) => [
+            label,
+            ...values.map(mf),
+          ])}
+        />
+        <p className="helper">
+          La última columna suma ventas, costos, utilidad y movimientos de caja
+          de todo el plan. Para caja muestra el saldo de apertura del primer mes
+          o el saldo de cierre del último mes. La utilidad neta no es el saldo
+          de caja.
+        </p>
+        {r.valid && (
+          <Notice
+            tone={r.rows.some((row) => row.need > 0) ? "warning" : "info"}
+          >
+            {r.rows.some((row) => row.need > 0)
+              ? `Meses por debajo de la reserva mínima: ${r.rows
+                  .filter((row) => row.need > 0)
+                  .map((row) => `${row.label} (faltan ${mf(row.need)})`)
+                  .join("; ")}.`
+              : `El saldo final de cada mes cubre la reserva mínima de ${mf(num(b.minimum))}.`}
+          </Notice>
+        )}
+      </Panel>
       <div className="tabs">
         {[
           ["inputs", "Supuestos"],
