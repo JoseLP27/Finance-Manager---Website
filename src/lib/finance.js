@@ -5,6 +5,7 @@ export const divide = (a, b) =>
   a == null || b == null || b === 0 ? null : a / b;
 export const change = (current, previous) =>
   divide(current - previous, previous);
+export const hasValue = (v) => v !== "" && v != null;
 export const sum = (values) =>
   values.reduce((total, value) => total + num(value), 0);
 export const product = (values) =>
@@ -102,6 +103,7 @@ export const createInitial = () => ({
     minimum: "",
     months: [blankMonth("Mes 1"), blankMonth("Mes 2"), blankMonth("Mes 3")],
   },
+  proforma: blankProforma(),
   personal: [],
   inventory: [],
 });
@@ -621,6 +623,167 @@ export function plan(budget, period, accounts) {
     ),
   };
 }
+// Supuestos de los estados proforma. Vacío = se usa la proporción real del período.
+export const proformaFields = [
+  ["growth", "Crecimiento de ventas (%)", "rate"],
+  ["costPct", "Costo de ventas (% de ventas)", "rate"],
+  ["expensePct", "Gastos operativos (% de ventas)", "rate"],
+  ["depreciation", "Depreciación del período proyectado", "money"],
+  ["interest", "Intereses proyectados", "money"],
+  ["taxRate", "Impuesto supuesto (%)", "rate"],
+  ["payoutPct", "Dividendos (% de la utilidad neta)", "rate"],
+  ["arPct", "Cuentas por cobrar (% de ventas)", "rate"],
+  ["inventoryPct", "Inventario (% del costo de ventas)", "rate"],
+  ["apPct", "Cuentas por pagar (% del costo de ventas)", "rate"],
+  ["capex", "Compra de activos fijos", "money"],
+];
+export function blankProforma() {
+  return Object.fromEntries(proformaFields.map(([k]) => [k, ""]));
+}
+
+/**
+ * Estados proforma por el método de porcentaje de ventas.
+ * - Estado de resultados: ventas × (1 + crecimiento); costo y gastos como % de ventas.
+ * - Balance: CxC, inventario y CxP varían con ventas/costo; activo fijo = actual +
+ *   compras − depreciación; utilidades retenidas = actual + utilidad neta − dividendos;
+ *   las demás cuentas se mantienen.
+ * - FER (financiamiento externo requerido) = activo proforma − (pasivo + patrimonio proforma).
+ */
+export function proforma(config = {}, period, previous, accounts) {
+  const s = statements(period, accounts);
+  const b = (id) => num(period.balance[id]);
+  const pct = (a, base) => (base ? (a / base) * 100 : 0);
+  let payout = 0,
+    capex = 0;
+  if (previous) {
+    const ps = statements(previous, accounts);
+    // Lo que el patrimonio retuvo, sin contar nuevos aportes de capital.
+    const kept =
+      s.equity - b("capital") - (ps.equity - num(previous.balance.capital));
+    payout =
+      s.net > 0 ? Math.min(100, Math.max(0, pct(s.net - kept, s.net))) : 0;
+    capex = Math.max(0, s.fixed - ps.fixed + s.depreciation);
+  }
+  const actual = {
+    growth: 0,
+    costPct: pct(s.cogs, s.sales),
+    expensePct: pct(s.opex, s.sales),
+    depreciation: s.depreciation,
+    interest: s.interest,
+    taxRate: s.taxRate,
+    payoutPct: payout,
+    arPct: pct(b("receivables"), s.sales),
+    inventoryPct: pct(b("inventory"), s.cogs),
+    apPct: pct(b("payables"), s.cogs),
+    capex,
+  };
+  const a = Object.fromEntries(
+    proformaFields.map(([k]) => [
+      k,
+      config[k] === "" || config[k] == null ? actual[k] : num(config[k]),
+    ]),
+  );
+  const sales = s.sales * (1 + a.growth / 100),
+    cogs = (sales * a.costPct) / 100,
+    gross = sales - cogs,
+    opex = (sales * a.expensePct) / 100,
+    ebit = gross - opex - a.depreciation,
+    otherIncome = s.otherIncome,
+    ebt = ebit + otherIncome - a.interest,
+    tax = (Math.max(0, ebt) * a.taxRate) / 100,
+    net = ebt - tax,
+    dividends = (Math.max(0, net) * a.payoutPct) / 100;
+  const otherCurrent =
+    s.current -
+    b("cash") -
+    b("investments") -
+    b("receivables") -
+    b("inventory");
+  const assets = [
+    ["cash", "Efectivo (se mantiene)", b("cash"), b("cash")],
+    [
+      "investments",
+      "Inversiones temporales (se mantienen)",
+      b("investments"),
+      b("investments"),
+    ],
+    [
+      "receivables",
+      "Cuentas por cobrar",
+      b("receivables"),
+      (sales * a.arPct) / 100,
+    ],
+    ["inventory", "Inventarios", b("inventory"), (cogs * a.inventoryPct) / 100],
+    [
+      "otherCurrent",
+      "Otros activos corrientes (se mantienen)",
+      otherCurrent,
+      otherCurrent,
+    ],
+    ["fixed", "Activo fijo neto", s.fixed, s.fixed + a.capex - a.depreciation],
+    [
+      "otherAsset",
+      "Otros activos no corrientes (se mantienen)",
+      s.otherAsset,
+      s.otherAsset,
+    ],
+  ];
+  const liabilities = [
+    ["payables", "Cuentas por pagar", b("payables"), (cogs * a.apPct) / 100],
+    [
+      "otherDebt",
+      "Otros pasivos corrientes (se mantienen)",
+      s.currentDebt - b("payables"),
+      s.currentDebt - b("payables"),
+    ],
+    ["longDebt", "Pasivo no corriente (se mantiene)", s.longDebt, s.longDebt],
+    [
+      "capital",
+      "Capital y reservas (se mantienen)",
+      s.equity - b("retained"),
+      s.equity - b("retained"),
+    ],
+    [
+      "retained",
+      "Utilidades retenidas",
+      b("retained"),
+      b("retained") + net - dividends,
+    ],
+  ];
+  const total = (rows, i) => sum(rows.map((r) => r[i]));
+  const totalAssets = total(assets, 3),
+    totalLiabEq = total(liabilities, 3);
+  return {
+    assumptions: a,
+    actual,
+    income: {
+      sales,
+      cogs,
+      gross,
+      opex,
+      depreciation: a.depreciation,
+      ebit,
+      otherIncome,
+      interest: a.interest,
+      ebt,
+      tax,
+      net,
+      dividends,
+    },
+    current: s,
+    assets,
+    liabilities,
+    totalAssets,
+    totalLiabEq,
+    actualAssets: total(assets, 2),
+    actualLiabEq: total(liabilities, 2),
+    fer: totalAssets - totalLiabEq,
+    // Dividendos del período actual estimados con el reparto real (0 sin período base).
+    actualDividends: (Math.max(0, s.net) * actual.payoutPct) / 100,
+    retainedAdded: net - dividends,
+  };
+}
+
 export function personalTotals(entries) {
   const income = sum(
       entries.filter((e) => e.kind === "income").map((e) => e.amount),

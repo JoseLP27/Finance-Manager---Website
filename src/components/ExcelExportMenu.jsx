@@ -10,11 +10,14 @@ import { useFinance } from "../lib/store";
 
 // El servicio (y exceljs) se cargan solo al exportar.
 const SECTION_SHEETS = {
-  estados: "Estados financieros + Análisis V-H",
-  razones: "Estados financieros + Razones",
-  equilibrio: "Estados financieros + C-V-U",
-  efectivo: "Estados financieros + Flujo de efectivo",
-  presupuesto: "Estados financieros + Caja",
+  estados: "Portada, Estados, Análisis V-H y razones, Fórmulas",
+  razones: "Portada, Estados, Análisis, razones y DuPont, Fórmulas",
+  equilibrio: "Portada, Estados, Equilibrio y Apalancamiento con gráficas",
+  efectivo: "Portada, Estados, Flujo de efectivo con gráfica",
+  presupuesto: "Portada, Estados, Presupuestos y Proforma",
+  proforma: "Portada, Estados y Estados proforma con FER",
+  personal: "Portada, Presupuesto personal con gráfica",
+  inventario: "Portada, Inventario con gráfica",
 };
 
 export default function ExcelExportMenu({ route, onDone }) {
@@ -43,7 +46,7 @@ export default function ExcelExportMenu({ route, onDone }) {
         await import("../services/exportToExcelService");
       const name = await exportToExcel(data, section);
       onDone?.(
-        `Excel generado: ${name}. Las celdas azules son editables y el resto se recalcula con fórmulas.`,
+        `Excel generado: ${name}. Las celdas amarillas son editables; fórmulas y gráficos se recalculan en Excel.`,
       );
     } catch (err) {
       console.error(err);
@@ -102,11 +105,11 @@ export default function ExcelExportMenu({ route, onDone }) {
             "completo",
             <BookOpenCheck size={17} />,
             "Libro completo (.xlsx)",
-            "6 hojas vinculadas: Estados, Análisis V-H, Razones, C-V-U, Flujo y Caja",
+            "12 hojas de la plantilla GFO con fórmulas legibles y 8 gráficos",
           )}
           <p className="m-0 border-t border-slate-100 px-3 pt-2 pb-1 text-[11px] leading-snug text-slate-500">
-            Incluye fórmulas nativas: cambia un dato en «Estados Financieros» y
-            Excel recalcula las demás hojas.
+            Fórmulas con nombres (p. ej. Ventas_Act): cambia un dato en
+            «02_Estados» y Excel recalcula las demás hojas y los gráficos.
           </p>
         </div>
       )}

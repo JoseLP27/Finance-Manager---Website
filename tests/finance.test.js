@@ -14,6 +14,8 @@ import {
   stock,
   divide,
   change,
+  proforma,
+  blankProforma,
 } from "../src/lib/finance.js";
 const close = (a, b, tolerance = 1e-8) =>
   assert.ok(Math.abs(a - b) < tolerance, `${a} ≠ ${b}`);
@@ -401,4 +403,31 @@ test("Linked cash flow derives every activity from the statements and ties to th
   close(f.lines.operating.find((l) => l.key === "customWc").value, -4000);
   // Sin período anterior, se usan los movimientos manuales.
   assert.equal(cashFlow(d.flow, prev, undefined, d.accounts).linked, false);
+});
+
+test("Pro forma statements project by percent of sales and compute external financing", () => {
+  const d = createInitial();
+  const p = d.periods[0];
+  p.balance = {
+    cash: 100,
+    receivables: 100,
+    inventory: 60,
+    equipment: 500,
+    payables: 60,
+    capital: 700,
+  };
+  p.income = { sales: 1000, cogs: 600, opex: 200, depreciation: 50 };
+  // Supuestos vacíos = proporciones reales; solo se captura el crecimiento.
+  const r = proforma({ ...blankProforma(), growth: 10 }, p, null, d.accounts);
+  close(r.assumptions.costPct, 60);
+  close(r.income.sales, 1100);
+  close(r.income.cogs, 660);
+  close(r.income.opex, 220);
+  close(r.income.net, 170); // 1100 − 660 − 220 − 50, sin intereses ni impuestos
+  close(r.income.dividends, 0); // sin período base: 0%
+  close(r.totalAssets, 100 + 110 + 66 + 450);
+  close(r.totalLiabEq, 66 + 700 + 170);
+  close(r.fer, 726 - 936);
+  // Un supuesto capturado reemplaza la proporción real.
+  close(proforma({ costPct: 50 }, p, null, d.accounts).income.cogs, 500);
 });

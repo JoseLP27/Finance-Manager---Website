@@ -116,6 +116,31 @@ export function validateData(data) {
       )
         fail();
   }
+  if (data.proforma !== undefined) {
+    if (!obj(data.proforma)) fail();
+    for (const [k, v] of Object.entries(data.proforma))
+      if (
+        ![
+          "growth",
+          "costPct",
+          "expensePct",
+          "depreciation",
+          "interest",
+          "taxRate",
+          "payoutPct",
+          "arPct",
+          "inventoryPct",
+          "apPct",
+          "capex",
+        ].includes(k) ||
+        !numeric(
+          v,
+          k === "growth" ? -100 : 0,
+          ["taxRate", "payoutPct"].includes(k) ? 100 : 1e15,
+        )
+      )
+        fail();
+  }
   if (
     !obj(data.flow) ||
     !list(data.flow.entries) ||

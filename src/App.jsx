@@ -8,6 +8,7 @@ import {
   CalendarRange,
   Wallet,
   Package,
+  TrendingUp,
   Menu,
   X,
   ChevronDown,
@@ -30,6 +31,7 @@ import Ratios from "./modules/Ratios";
 import Cvu from "./modules/Cvu";
 import CashFlow from "./modules/CashFlow";
 import Budget from "./modules/Budget";
+import Proforma from "./modules/Proforma";
 import Personal from "./modules/Personal";
 import Inventory from "./modules/Inventory";
 export const modules = [
@@ -77,6 +79,14 @@ export const modules = [
     icon: CalendarRange,
     description:
       "Conecta ventas, compras, gastos y la caja de los próximos meses.",
+  },
+  {
+    id: "proforma",
+    label: "Estados proforma",
+    title: "Estados financieros proforma",
+    icon: TrendingUp,
+    description:
+      "Proyecta resultados y balance, y calcula el financiamiento externo requerido.",
   },
   {
     id: "personal",
@@ -211,11 +221,11 @@ export default function App() {
           <span className="nav-heading">GENERAL</span>
           <NavItem m={modules[0]} active={route} navigate={navigate} />
           <span className="nav-heading">ANÁLISIS Y PLANEACIÓN</span>
-          {modules.slice(1, 6).map((m) => (
+          {modules.slice(1, 7).map((m) => (
             <NavItem key={m.id} m={m} active={route} navigate={navigate} />
           ))}
           <span className="nav-heading">HERRAMIENTAS PERSONALES</span>
-          {modules.slice(6).map((m) => (
+          {modules.slice(7).map((m) => (
             <NavItem key={m.id} m={m} active={route} navigate={navigate} />
           ))}
         </nav>
@@ -337,6 +347,7 @@ export default function App() {
           {route === "equilibrio" && <Cvu />}
           {route === "efectivo" && <CashFlow />}
           {route === "presupuesto" && <Budget />}
+          {route === "proforma" && <Proforma />}
           {route === "personal" && <Personal />}
           {route === "inventario" && <Inventory />}
           <footer className="footer">

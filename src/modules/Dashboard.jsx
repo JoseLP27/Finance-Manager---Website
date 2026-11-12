@@ -208,7 +208,7 @@ export default function Dashboard({ navigate, modules }) {
           <h2>Explora tus herramientas</h2>
           <p className="muted">Del estado financiero a la decisión.</p>
         </div>
-        <span className="section-tag">7 HERRAMIENTAS</span>
+        <span className="section-tag">{modules.length - 1} HERRAMIENTAS</span>
       </div>
       <div className="module-cards">
         {modules

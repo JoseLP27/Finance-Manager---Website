@@ -488,3 +488,69 @@ export function BudgetTheory({ r, b, currency }) {
     </TheoryGuide>
   );
 }
+
+export function ProformaTheory({ r, currency }) {
+  const mf = (v) => money(v, currency);
+  return (
+    <TheoryGuide>
+      <FinancialTheoryCard
+        title="Estados proforma"
+        definition="Estados financieros proyectados para un período futuro: estado de resultados y balance general construidos a partir de supuestos de ventas, costos y políticas de la empresa."
+        formula={
+          <Eq name="Proforma">Estados actuales + Supuestos de proyección</Eq>
+        }
+        interpretation="Definen cómo se verían los resultados y la posición financiera si se cumplen los supuestos. Sirven para planear el financiamiento antes de que se necesite."
+        dynamicExample={ex(
+          r.income.net,
+          () => `Utilidad neta proyectada: ${mf(r.income.net)}`,
+        )}
+      />
+      <FinancialTheoryCard
+        title="Método de porcentaje de ventas"
+        definition="Supone que ciertas partidas (costo de ventas, gastos, cuentas por cobrar, inventario y proveedores) mantienen una proporción constante respecto de las ventas o del costo de ventas."
+        formula={
+          <span className="flex flex-col gap-3">
+            <Eq name="Ventas proforma">Ventas × (1 + g)</Eq>
+            <Eq name="Partida proforma">
+              <Frac n="Partida actual" d="Ventas actuales" /> × Ventas proforma
+            </Eq>
+          </span>
+        }
+        interpretation="Define cuánto crecerán los recursos y obligaciones que dependen del nivel de actividad. Las partidas sin relación directa con las ventas se mantienen."
+        dynamicExample={ex(
+          r.income.sales,
+          () => `Ventas proforma: ${mf(r.income.sales)}`,
+        )}
+      />
+      <FinancialTheoryCard
+        title="Utilidades retenidas proforma"
+        definition="Parte de la utilidad neta proyectada que permanece en la empresa después de pagar dividendos; es la fuente interna de financiamiento."
+        formula={
+          <Eq name="UR proforma">
+            UR actuales + Utilidad neta proforma − Dividendos
+          </Eq>
+        }
+        interpretation="Define cuánto del crecimiento se financia con recursos propios generados por la operación."
+        dynamicExample={ex(
+          r.retainedAdded,
+          () => `Se retienen ${mf(r.retainedAdded)} en el período`,
+        )}
+      />
+      <FinancialTheoryCard
+        title="Financiamiento externo requerido (FER)"
+        definition="Monto que la empresa debe obtener de fuentes externas (deuda o nuevo capital) para que el balance proforma cuadre."
+        formula={
+          <Eq name="FER">
+            Activo total proforma − (Pasivo + Patrimonio proforma)
+          </Eq>
+        }
+        interpretation="Si es positivo, define el financiamiento adicional que se debe gestionar; si es negativo, indica un excedente de fondos disponible."
+        dynamicExample={ex(r.fer, () =>
+          r.fer > 0.005
+            ? `Se requieren ${mf(r.fer)}`
+            : `Excedente de ${mf(-r.fer)}`,
+        )}
+      />
+    </TheoryGuide>
+  );
+}

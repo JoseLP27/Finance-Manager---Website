@@ -8,6 +8,7 @@ import {
   cashFlow,
   plan,
   personalTotals,
+  proforma,
   stock,
   change,
   divide,
@@ -565,5 +566,34 @@ export function contextoPanel(data, period, previous) {
     periodosRegistrados: data.periods.map((x) => x.label),
     alertasInventario: data.inventory.filter((x) => stock(x).low).length,
     nota: "El panel resume el período seleccionado y conecta estados, razones, C-V-U y presupuesto.",
+  };
+}
+
+export function contextoProforma(data, period, previous) {
+  if (!period) return { ...base(data, period), disponible: false };
+  const r = proforma(data.proforma ?? {}, period, previous, data.accounts);
+  const m = (v) => money(v, data.currency);
+  return {
+    ...base(data, period),
+    disponible: hayDatosEnPeriodo(period),
+    metodo:
+      "Porcentaje de ventas; las partidas sin relación con las ventas se mantienen",
+    supuestos: Object.fromEntries(
+      Object.entries(r.assumptions).map(([k, v]) => [k, redondear(v)]),
+    ),
+    estadoResultados: {
+      ventasActuales: m(r.current.sales),
+      ventasProforma: m(r.income.sales),
+      utilidadNetaActual: m(r.current.net),
+      utilidadNetaProforma: m(r.income.net),
+      dividendosProforma: m(r.income.dividends),
+    },
+    balance: {
+      activoActual: m(r.actualAssets),
+      activoProforma: m(r.totalAssets),
+      pasivoPatrimonioProforma: m(r.totalLiabEq),
+      financiamientoExternoRequerido: m(r.fer),
+    },
+    nota: "FER positivo = se requiere financiamiento adicional; negativo = excedente de fondos.",
   };
 }
