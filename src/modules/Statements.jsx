@@ -21,6 +21,7 @@ import {
   AddButton,
   Metric,
 } from "../components/UI";
+import { StatementsTheory } from "../content/theoryGuides";
 import InterpretacionIA from "../components/InterpretacionIA";
 import { contextoEstados, hayDatosEnPeriodo } from "../services/aiContexts";
 export default function Statements() {
@@ -209,6 +210,13 @@ export default function Statements() {
           </button>
         ))}
       </div>
+      <StatementsTheory
+        s={s}
+        ps={ps}
+        p={p}
+        prev={prev}
+        currency={data.currency}
+      />
       {tab === "balance" && (
         <>
           <Panel

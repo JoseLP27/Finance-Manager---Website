@@ -14,6 +14,7 @@ import {
   AddButton,
 } from "../components/UI";
 import { TrendChart } from "../components/Charts";
+import { BudgetTheory } from "../content/theoryGuides";
 import InterpretacionIA from "../components/InterpretacionIA";
 import { contextoPresupuesto } from "../services/aiContexts";
 export default function Budget() {
@@ -131,6 +132,7 @@ export default function Budget() {
         iniciales pendientes se liquidan en el primer mes. Impuestos e intereses
         se pagan en el mes.
       </Notice>
+      <BudgetTheory r={r} b={b} currency={data.currency} />
       <div className="metrics-grid">
         <Metric
           label="Ventas proyectadas"

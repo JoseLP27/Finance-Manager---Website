@@ -23,6 +23,7 @@ import { useFinance, validateData } from "./lib/store";
 import { download } from "./lib/format";
 import { Panel, Field, Select, Button, Notice } from "./components/UI";
 import { ConfiguracionClaveIA } from "./components/InterpretacionIA";
+import ExcelExportMenu from "./components/ExcelExportMenu";
 import Dashboard from "./modules/Dashboard";
 import Statements from "./modules/Statements";
 import Ratios from "./modules/Ratios";
@@ -307,6 +308,7 @@ export default function App() {
                   ))}
                 </select>
               </label>
+              <ExcelExportMenu route={route} onDone={setMessage} />
               <Button secondary onClick={exportBackup}>
                 <Download size={16} />
                 <span>Respaldar datos</span>

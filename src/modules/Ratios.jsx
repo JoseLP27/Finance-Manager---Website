@@ -2,6 +2,7 @@ import { useFinance } from "../lib/store";
 import { ratios, statements } from "../lib/finance";
 import { money, number, percent, times } from "../lib/format";
 import { Panel, Notice, Table, Metric, Export } from "../components/UI";
+import { RatiosTheory } from "../content/theoryGuides";
 import InterpretacionIA from "../components/InterpretacionIA";
 import { contextoRazones, hayDatosEnPeriodo } from "../services/aiContexts";
 export default function Ratios() {
@@ -175,6 +176,7 @@ export default function Ratios() {
           ser interpretables económicamente.
         </Notice>
       )}
+      <RatiosTheory r={r} s={s} currency={data.currency} />
       <Panel
         title="Sistema DuPont"
         subtitle="Tres factores que explican el rendimiento del patrimonio."

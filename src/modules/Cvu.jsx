@@ -18,6 +18,7 @@ import {
   Export,
 } from "../components/UI";
 import { BreakEvenChart } from "../components/Charts";
+import { CvuTheory } from "../content/theoryGuides";
 import InterpretacionIA from "../components/InterpretacionIA";
 import { contextoCvu } from "../services/aiContexts";
 export default function Cvu() {
@@ -74,6 +75,7 @@ export default function Cvu() {
         operativos como fijos: verifica esta clasificación antes de interpretar
         el resultado.
       </Notice>
+      <CvuTheory input={input} r={r} currency={data.currency} />
       <div className="two-columns">
         <Panel
           title="Base de operación"

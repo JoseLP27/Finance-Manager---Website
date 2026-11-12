@@ -13,6 +13,7 @@ import {
   Export,
   AddButton,
 } from "../components/UI";
+import { CashFlowTheory } from "../content/theoryGuides";
 import InterpretacionIA from "../components/InterpretacionIA";
 import { contextoEfe } from "../services/aiContexts";
 export default function CashFlow() {
@@ -59,6 +60,7 @@ export default function CashFlow() {
         financiamiento. La depreciación solo interviene en la conciliación
         indirecta.
       </Notice>
+      <CashFlowTheory f={f} s={s} currency={data.currency} />
       <div className="tabs">
         <button
           className={method === "direct" ? "active" : ""}
