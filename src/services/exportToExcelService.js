@@ -147,6 +147,62 @@ function makeSheet(wb, key, title, subtitle, widths) {
 }
 
 /**
+ * Inmoviliza la cabecera y la primera columna. topLeftCell/activeCell apuntan a la
+ * primera celda desplazable para que Excel abra la hoja arriba, sin saltar a filas vacías.
+ */
+function freeze(ws, xSplit, ySplit) {
+  const first = `${colLetter(xSplit + 1)}${ySplit + 1}`;
+  ws.views = [
+    {
+      state: "frozen",
+      xSplit,
+      ySplit,
+      topLeftCell: first,
+      activeCell: first,
+      showGridLines: false,
+    },
+  ];
+}
+
+/**
+ * Barra de datos sólida (extensión x14 de Excel 2010+): color propio para
+ * valores positivos y otro para negativos, con el eje en el punto cero.
+ */
+function dataBar(positive, negative) {
+  return {
+    type: "dataBar",
+    cfvo: [{ type: "min" }, { type: "max" }],
+    color: { argb: positive },
+    gradient: false,
+    border: false,
+    negativeBarColorSameAsPositive: false,
+    negativeFillColor: { argb: negative },
+    axisPosition: "auto",
+    axisColor: { argb: "FF6B7A90" },
+    minLength: 0,
+    maxLength: 100,
+  };
+}
+
+/**
+ * Semáforo de 3 colores. Rojo < low ≤ amarillo < high ≤ verde.
+ * reverse = true invierte la lectura (menor es mejor, p. ej. endeudamiento).
+ */
+function trafficLights(low, high, reverse = false) {
+  return {
+    type: "iconSet",
+    iconSet: "3TrafficLights1",
+    reverse,
+    showValue: true,
+    cfvo: [
+      { type: "percent", value: 0 },
+      { type: "num", value: low },
+      { type: "num", value: high },
+    ],
+  };
+}
+
+/**
  * Motor de filas: primero asigna un número de fila a cada clave (para permitir
  * referencias hacia adelante, p. ej. el inventario inicial del mes 2 apunta al
  * inventario final del mes 1, que está más abajo) y después escribe.
@@ -162,7 +218,7 @@ function layout(items, start) {
   return { R, end: r };
 }
 
-function writeItems(ws, items, cols, fmt, { noteCol } = {}) {
+function writeItems(ws, items, cols, fmt, { noteCol, labelCol = 1 } = {}) {
   const lastCol = Math.max(
     ...cols.map((c) => ws.getColumn(c).number),
     noteCol ? ws.getColumn(noteCol).number : 1,
@@ -170,23 +226,26 @@ function writeItems(ws, items, cols, fmt, { noteCol } = {}) {
   for (const it of items) {
     const row = ws.getRow(it.row);
     if (it.kind === "blank") continue;
-    row.getCell(1).value = it.label;
+    row.getCell(labelCol).value = it.label;
     if (it.kind === "section") {
-      for (let c = 1; c <= lastCol; c++) {
+      for (let c = labelCol; c <= lastCol; c++) {
         row.getCell(c).fill = {
           type: "pattern",
           pattern: "solid",
           fgColor: { argb: COLORS.sectionFill },
         };
       }
-      row.getCell(1).font = { bold: true, color: { argb: COLORS.brand } };
+      row.getCell(labelCol).font = {
+        bold: true,
+        color: { argb: COLORS.brand },
+      };
       continue;
     }
     if (it.kind === "header") {
       it.headers.forEach((h, i) => {
-        row.getCell(i + 2).value = h;
+        row.getCell(i + labelCol + 1).value = h;
       });
-      for (let c = 1; c <= lastCol; c++) {
+      for (let c = labelCol; c <= lastCol; c++) {
         const cell = row.getCell(c);
         cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         cell.fill = {
@@ -195,7 +254,7 @@ function writeItems(ws, items, cols, fmt, { noteCol } = {}) {
           fgColor: { argb: COLORS.brand },
         };
         cell.alignment = {
-          horizontal: c === 1 ? "left" : "center",
+          horizontal: c === labelCol ? "left" : "center",
           wrapText: true,
         };
       }
@@ -210,7 +269,7 @@ function writeItems(ws, items, cols, fmt, { noteCol } = {}) {
       n.font = { italic: true, size: 9, color: { argb: COLORS.muted } };
     }
     if (it.kind === "total") {
-      for (let c = 1; c <= lastCol; c++) {
+      for (let c = labelCol; c <= lastCol; c++) {
         const cell = row.getCell(c);
         cell.font = { ...(cell.font || {}), bold: true };
         cell.border = {
@@ -375,7 +434,7 @@ function buildStatements(wb, data, fmt) {
   );
   ({ R } = layout(items, 5));
   writeItems(ws, items, cols, fmt);
-  ws.views = [{ state: "frozen", xSplit: 1, ySplit: 5, showGridLines: false }];
+  freeze(ws, 1, 5);
   // Referencias absolutas hacia esta hoja para las demás.
   return {
     cell: (key, pi) => (R[key] ? xref("ef", abs(cols[pi], R[key])) : "0"),
@@ -461,13 +520,19 @@ function buildAnalysis(wb, data, fmt, ef, { base, current }) {
     it.cell = (c, i) => c0(c, i, it.row);
   }
   writeItems(ws, items, cols, fmt);
+  // Barras de datos en «Variación %»: verde si aumenta, roja si disminuye.
+  const dataRows = items.filter((it) => it.cell).map((it) => it.row);
+  ws.addConditionalFormatting({
+    ref: `G${dataRows[0]}:G${dataRows.at(-1)}`,
+    rules: [dataBar("FF17A34A", "FFDC2626")],
+  });
   // Formato por columna (el motor aplica uno por fila).
   for (const it of items)
     if (it.cell)
       cols.forEach(
         (c, i) => (ws.getCell(`${c}${it.row}`).numFmt = fmt[fmts[i]]),
       );
-  ws.views = [{ state: "frozen", xSplit: 1, ySplit: 5, showGridLines: false }];
+  freeze(ws, 1, 5);
 }
 
 /* ───────────────────────── hoja: Razones financieras ───────────────────────── */
@@ -483,7 +548,7 @@ function buildRatios(wb, data, fmt, ef, { current, previous }) {
     q == null
       ? `${P[p].label}. Solo hay un balance: los promedios usan saldos de cierre.`
       : `${P[p].label}. Promedios entre ${P[q].label} y ${P[p].label}; liquidez y endeudamiento usan el cierre.`,
-    [36, 50, 18],
+    [36, 50, 18, 34],
   );
   const E = (k) => ef.cell(k, p);
   const avg = (getter) =>
@@ -499,7 +564,11 @@ function buildRatios(wb, data, fmt, ef, { current, previous }) {
       i === 0 ? note : typeof formula === "function" ? fx(formula()) : formula,
   });
   const items = [
-    { kind: "header", label: "Concepto", headers: ["Fórmula", "Resultado"] },
+    {
+      kind: "header",
+      label: "Concepto",
+      headers: ["Fórmula", "Resultado", "Semáforo (referencia académica)"],
+    },
     { kind: "section", label: "DATOS DE CÁLCULO" },
     row(
       "days",
@@ -726,15 +795,67 @@ function buildRatios(wb, data, fmt, ef, { current, previous }) {
       "total",
     ),
   ];
+  // Umbrales del semáforo: [rojo por debajo de, verde desde, invertido, leyenda].
+  const pct = (v) => `${v * 100}%`;
+  const lights = {
+    ctn: [0, 0, false, "Rojo si es negativo"],
+    current: [1, 1.5, false, "Rojo < 1 · Amarillo 1–1.5 · Verde ≥ 1.5"],
+    acid: [0.8, 1, false, "Rojo < 0.8 · Amarillo 0.8–1 · Verde ≥ 1"],
+    debt: [0.5, 0.7, true, "Verde < 50% · Amarillo 50–70% · Rojo ≥ 70%"],
+    debtEquity: [1, 2, true, "Verde < 1 · Amarillo 1–2 · Rojo ≥ 2"],
+    coverage: [1.5, 3, false, "Rojo < 1.5 · Amarillo 1.5–3 · Verde ≥ 3"],
+    grossMargin: [
+      0,
+      0.2,
+      false,
+      `Rojo < 0 · Amarillo 0–${pct(0.2)} · Verde ≥ ${pct(0.2)}`,
+    ],
+    opMargin: [
+      0,
+      0.1,
+      false,
+      `Rojo < 0 · Amarillo 0–${pct(0.1)} · Verde ≥ ${pct(0.1)}`,
+    ],
+    margin: [
+      0,
+      0.05,
+      false,
+      `Rojo < 0 · Amarillo 0–${pct(0.05)} · Verde ≥ ${pct(0.05)}`,
+    ],
+    roa: [
+      0,
+      0.05,
+      false,
+      `Rojo < 0 · Amarillo 0–${pct(0.05)} · Verde ≥ ${pct(0.05)}`,
+    ],
+    roe: [
+      0,
+      0.1,
+      false,
+      `Rojo < 0 · Amarillo 0–${pct(0.1)} · Verde ≥ ${pct(0.1)}`,
+    ],
+    dupont: [
+      0,
+      0.1,
+      false,
+      `Rojo < 0 · Amarillo 0–${pct(0.1)} · Verde ≥ ${pct(0.1)}`,
+    ],
+  };
+  for (const it of items) if (lights[it.key]) it.note = lights[it.key][3];
   ({ R } = layout(items, 5));
-  writeItems(ws, items, ["B", "C"], fmt);
+  writeItems(ws, items, ["B", "C"], fmt, { noteCol: "D" });
+  for (const [key, [low, high, reverse]] of Object.entries(lights))
+    ws.addConditionalFormatting({
+      ref: `C${R[key]}`,
+      rules: [trafficLights(low, high, reverse)],
+    });
   for (const it of items)
     if (it.cell)
       ws.getCell(`B${it.row}`).font = {
         italic: true,
         color: { argb: COLORS.muted },
       };
-  ws.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
+  freeze(ws, 1, 5);
 }
 
 /* ───────────────────────── hoja: C-V-U y apalancamiento ───────────────────────── */
@@ -1034,7 +1155,7 @@ function buildCvu(wb, data, fmt, ef, { current }) {
   );
   ({ R } = layout(items, 5));
   writeItems(ws, items, ["B", "C"], fmt, { noteCol: "D" });
-  ws.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
+  freeze(ws, 1, 5);
 }
 
 /* ───────────────────────── hoja: Flujo de efectivo ───────────────────────── */
@@ -1199,7 +1320,7 @@ function buildCashFlowLinked(wb, data, fmt, ef, { current, previous }) {
   }
   ({ R } = layout(items, 5));
   writeItems(ws, items, ["B"], fmt, { noteCol: "C" });
-  ws.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
+  freeze(ws, 1, 5);
 }
 
 function buildCashFlow(wb, data, fmt, ef, ctx) {
@@ -1424,7 +1545,7 @@ function buildCashFlow(wb, data, fmt, ef, ctx) {
     });
   ({ R } = layout(items, last + 2));
   writeItems(ws, items, ["B"], fmt);
-  ws.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
+  freeze(ws, 1, 5);
 }
 
 /* ───────────────────────── hoja: Presupuesto maestro y caja ───────────────────────── */
@@ -1439,13 +1560,16 @@ function buildBudget(wb, data, fmt, ef, { current }) {
     "cash",
     "Presupuesto maestro y de caja",
     linked
-      ? `Vinculado a ${data.periods[p].label}. El crédito se cobra/paga al mes siguiente.`
-      : "Supuestos manuales. El crédito se cobra/paga al mes siguiente.",
-    [46, ...M.map(() => 16), 18],
+      ? `Vinculado a ${data.periods[p].label}. El crédito se cobra/paga al mes siguiente. Supuestos generales a la derecha de la tabla.`
+      : "Supuestos manuales. El crédito se cobra/paga al mes siguiente. Supuestos generales a la derecha de la tabla.",
+    [46, ...M.map(() => 16), 18, 3, 40, 18],
   );
-  // Bloque de supuestos (columna B).
+  // Bloque de supuestos a la derecha de la tabla mensual: así la cabecera de
+  // meses queda en la fila 5 y se puede inmovilizar sin bloquear media pantalla.
+  const supLabelCol = M.length + 4;
+  const supCol = colLetter(M.length + 5);
   let A;
-  const S = (k) => `$B$${A[k]}`;
+  const S = (k) => `${supCol}${A[k]}`;
   const E = (k) => ef.cell(k, p);
   const sup = (key, label, f, cell, note) => ({
     key,
@@ -1499,8 +1623,8 @@ function buildBudget(wb, data, fmt, ef, { current }) {
       ),
     );
   ({ R: A } = layout(assumptions, 5));
-  const tableStart = A[linked ? "baseUnits" : "ap"] + 2;
-  writeItems(ws, assumptions, ["B"], fmt);
+  const tableStart = 5;
+  writeItems(ws, assumptions, [supCol], fmt, { labelCol: supLabelCol });
 
   // Tabla mensual: columnas B.. por mes + columna de total.
   const cols = [...M.map((_, i) => colLetter(i + 2)), colLetter(M.length + 2)];
@@ -1762,9 +1886,26 @@ function buildBudget(wb, data, fmt, ef, { current }) {
       },
     ],
   });
-  ws.views = [
-    { state: "frozen", xSplit: 1, ySplit: tableStart, showGridLines: false },
-  ];
+  // Fila destacada del saldo final de caja + barras de datos azules (rojas si hay déficit).
+  for (let c = 1; c <= cols.length + 1; c++) {
+    const cell = ws.getRow(R.closeCash).getCell(c);
+    cell.font = { bold: true, color: { argb: COLORS.brand } };
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFDCE7FA" },
+    };
+    cell.border = {
+      top: { style: "medium", color: { argb: COLORS.brand } },
+      bottom: { style: "medium", color: { argb: COLORS.brand } },
+    };
+  }
+  ws.getRow(R.closeCash).height = 24;
+  ws.addConditionalFormatting({
+    ref: `${cols[0]}${R.closeCash}:${cols[T - 1]}${R.closeCash}`,
+    rules: [dataBar(COLORS.brand, "FFD92D20")],
+  });
+  freeze(ws, 1, tableStart);
 }
 
 /* ───────────────────────── API pública ───────────────────────── */
