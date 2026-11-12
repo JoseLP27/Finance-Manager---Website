@@ -7,7 +7,12 @@
 //
 // exceljs se carga de forma diferida (import dinámico) para no aumentar el
 // tamaño inicial de la aplicación.
-import { accountGroups, num } from "../lib/finance.js";
+import {
+  accountGroups,
+  defaultAccounts,
+  linkedFlowSpec,
+  num,
+} from "../lib/finance.js";
 
 export const SHEET_NAMES = {
   ef: "Estados Financieros",
@@ -1040,7 +1045,167 @@ const GROUP_LABEL = {
   financing: "Financiamiento",
 };
 
-function buildCashFlow(wb, data, fmt, ef, { current, previous }) {
+// EFE vinculado: cada línea es una fórmula construida con la misma especificación
+// que usa la app (linkedFlowSpec), apuntando a la hoja de Estados Financieros.
+function buildCashFlowLinked(wb, data, fmt, ef, { current, previous }) {
+  const P = data.periods,
+    p = P[current],
+    q = P[previous];
+  const ws = makeSheet(
+    wb,
+    "flow",
+    "Estado de flujo de efectivo (vinculado)",
+    `${q.label} → ${p.label}. Calculado con fórmulas desde «Estados Financieros»: cambia un saldo allí y este estado se recalcula.`,
+    [64, 20, 46],
+  );
+  const defaults = new Set(defaultAccounts.map((a) => a.id));
+  const delta = (cur, prev) => `(${cur}-${prev})`;
+  const term = ([type, ref, sign]) => {
+    const body =
+      type === "inc"
+        ? ef.cell(ref, current)
+        : type === "acc"
+          ? delta(ef.acc(ref, current), ef.acc(ref, previous))
+          : type === "grp"
+            ? delta(ef.cell(`g:${ref}`, current), ef.cell(`g:${ref}`, previous))
+            : `(${
+                data.accounts
+                  .filter((a) => a.group === ref && !defaults.has(a.id))
+                  .map((a) =>
+                    delta(ef.acc(a.id, current), ef.acc(a.id, previous)),
+                  )
+                  .join("+") || "0"
+              })`;
+    return `${sign < 0 ? "-" : "+"}${body}`;
+  };
+  const lineFormula = (terms) => terms.map(term).join("").replace(/^\+/, "");
+  const spec = linkedFlowSpec(data.accounts);
+  let R;
+  const B = (k) => `B${R[k]}`;
+  const items = [
+    {
+      kind: "header",
+      label: "Concepto",
+      headers: [data.currency, "Fórmula de la línea"],
+    },
+  ];
+  const groupKeys = { operating: "op", investing: "inv", financing: "fin" };
+  for (const [g, label] of Object.entries(GROUP_LABEL)) {
+    items.push({
+      kind: "section",
+      label: `ACTIVIDADES DE ${label.toUpperCase()}`,
+    });
+    for (const l of spec[g])
+      items.push({
+        key: `${g}:${l.key}`,
+        label: l.label,
+        fmt: "money",
+        cell: () => fx(lineFormula(l.terms)),
+      });
+    items.push({
+      key: groupKeys[g],
+      kind: "total",
+      label: `Flujo de ${label.toLowerCase()}`,
+      fmt: "money",
+      cell: () =>
+        fx(
+          `SUM(B${R[`${g}:${spec[g][0].key}`]}:B${R[`${g}:${spec[g].at(-1).key}`]})`,
+        ),
+    });
+  }
+  items.push(
+    { kind: "blank" },
+    { kind: "section", label: "RESUMEN" },
+    {
+      key: "initial",
+      label: `Saldo inicial (efectivo de ${q.label})`,
+      fmt: "money",
+      cell: () => lnk(ef.acc("cash", previous)),
+    },
+    {
+      key: "net",
+      label: "Variación neta de efectivo",
+      fmt: "money",
+      kind: "total",
+      cell: () => fx(`${B("op")}+${B("inv")}+${B("fin")}`),
+    },
+    {
+      key: "final",
+      label: "Saldo final de efectivo",
+      fmt: "money",
+      kind: "total",
+      cell: () => fx(`${B("initial")}+${B("net")}`),
+    },
+    { kind: "blank" },
+    { kind: "section", label: "MÉTODO INDIRECTO" },
+    ...spec.indirect.map((l) => ({
+      key: `ind:${l.key}`,
+      label: l.label,
+      fmt: "money",
+      cell: () => fx(lineFormula(l.terms)),
+    })),
+    {
+      key: "indirect",
+      kind: "total",
+      label: "Flujo de operación (indirecto)",
+      fmt: "money",
+      cell: () =>
+        fx(
+          `SUM(B${R[`ind:${spec.indirect[0].key}`]}:B${R[`ind:${spec.indirect.at(-1).key}`]})`,
+        ),
+    },
+    { kind: "blank" },
+    { kind: "section", label: "CONCILIACIÓN" },
+    {
+      key: "bal",
+      label: `Efectivo en balance de ${p.label}`,
+      fmt: "money",
+      cell: () => lnk(ef.acc("cash", current)),
+    },
+    {
+      key: "dBal",
+      label: "Diferencia saldo final − balance (0 si ambos balances cuadran)",
+      fmt: "money",
+      cell: () => fx(`${B("final")}-${B("bal")}`),
+    },
+    {
+      key: "dMeth",
+      label: "Diferencia operación directa − indirecta",
+      fmt: "money",
+      cell: () => fx(`${B("op")}-${B("indirect")}`),
+    },
+  );
+  // Nota legible con la fórmula de cada línea.
+  const describe = (terms) =>
+    terms
+      .map(([type, ref, sign], i) => {
+        const name =
+          type === "inc"
+            ? RESULT_ROWS.find(([k]) => k === ref)?.[1] || ref
+            : type === "acc"
+              ? `Δ ${data.accounts.find((a) => a.id === ref)?.label || ref}`
+              : type === "grp"
+                ? `Δ ${accountGroups[ref]}`
+                : `Δ cuentas adicionales (${accountGroups[ref].toLowerCase()})`;
+        return `${sign < 0 ? "− " : i ? "+ " : ""}${name}`;
+      })
+      .join(" ");
+  for (const it of items) {
+    const [g, k] = it.key?.split(":") ?? [];
+    const line = (g === "ind" ? spec.indirect : spec[g])?.find(
+      (l) => l.key === k,
+    );
+    if (line) it.note = describe(line.terms);
+  }
+  ({ R } = layout(items, 5));
+  writeItems(ws, items, ["B"], fmt, { noteCol: "C" });
+  ws.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
+}
+
+function buildCashFlow(wb, data, fmt, ef, ctx) {
+  const { current, previous } = ctx;
+  if (data.flow.linked && previous != null)
+    return buildCashFlowLinked(wb, data, fmt, ef, ctx);
   const P = data.periods,
     p = P[current],
     prev = previous == null ? null : P[previous];

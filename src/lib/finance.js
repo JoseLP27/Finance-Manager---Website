@@ -87,7 +87,7 @@ export const createInitial = () => ({
     costChange: "",
     fixedChange: "",
   },
-  flow: { entries: [], settings: {} },
+  flow: { linked: true, entries: [], settings: {} },
   budget: {
     linked: true,
     price: "",
@@ -272,7 +272,31 @@ export function cashFlow(flow, period, previous, accounts) {
   const initial = previous
     ? num(previous.balance.cash)
     : num(settings.initialCash);
+  // Modo vinculado: todo el EFE se deriva de dos balances y el estado de resultados.
+  if (flow.linked && previous) {
+    const lines = linkedFlowLines(period, previous, accounts);
+    const total = (g) => sum(lines[g].map((l) => l.value));
+    const op = total("operating"),
+      inv = total("investing"),
+      fin = total("financing"),
+      ind = total("indirect");
+    return {
+      linked: true,
+      lines,
+      operating: op,
+      investing: inv,
+      financing: fin,
+      indirect: ind,
+      initial,
+      net: op + inv + fin,
+      final: initial + op + inv + fin,
+      indirectFinal: initial + ind + inv + fin,
+      delta,
+      reconciliation: op - ind,
+    };
+  }
   return {
+    linked: false,
     operating,
     investing,
     financing,
@@ -285,6 +309,198 @@ export function cashFlow(flow, period, previous, accounts) {
     delta,
     reconciliation: indirect == null ? null : operating - indirect,
   };
+}
+
+/**
+ * Especificación del EFE vinculado. Cada línea es una suma de términos:
+ *  ["inc", clave, signo]  → partida del estado de resultados del período actual
+ *  ["acc", cuenta, signo] → variación de una cuenta del balance (actual − anterior)
+ *  ["grp", grupo, signo]  → variación del total de un grupo del balance
+ *  ["custom", grupo, signo] → variación de las cuentas agregadas por el usuario en ese grupo
+ * La misma especificación genera las fórmulas de Excel, para que ambos coincidan.
+ * Cubre todas las cuentas del balance: si ambos balances cuadran, el saldo final
+ * del EFE coincide con el efectivo del balance actual.
+ */
+export function linkedFlowSpec(accounts) {
+  const defaults = new Set(defaultAccounts.map((a) => a.id));
+  const has = (group) =>
+    accounts.some((a) => a.group === group && !defaults.has(a.id));
+  const customWc = [
+    ...(has("current") ? [["custom", "current", -1]] : []),
+    ...(has("currentDebt") ? [["custom", "currentDebt", 1]] : []),
+  ];
+  const wcLine = customWc.length
+    ? [
+        {
+          key: "customWc",
+          label: "Variación de otras cuentas de capital de trabajo",
+          terms: customWc,
+        },
+      ]
+    : [];
+  return {
+    operating: [
+      {
+        key: "collections",
+        label: "Cobros a clientes (ventas − Δ CxC)",
+        terms: [
+          ["inc", "sales", 1],
+          ["acc", "receivables", -1],
+        ],
+      },
+      {
+        key: "suppliers",
+        label:
+          "Pagos a proveedores (costo de ventas + Δ inventario − Δ proveedores)",
+        terms: [
+          ["inc", "cogs", -1],
+          ["acc", "inventory", -1],
+          ["acc", "payables", 1],
+        ],
+      },
+      {
+        key: "expenses",
+        label: "Pagos de gastos operativos (gastos + Δ otros AC − Δ otros PC)",
+        terms: [
+          ["inc", "opex", -1],
+          ["acc", "otherCurrent", -1],
+          ["acc", "otherDebt", 1],
+        ],
+      },
+      {
+        key: "interest",
+        label: "Intereses pagados",
+        terms: [["inc", "interest", -1]],
+      },
+      {
+        key: "taxes",
+        label: "Impuestos pagados (impuesto − Δ impuestos por pagar)",
+        terms: [
+          ["inc", "tax", -1],
+          ["acc", "taxPayable", 1],
+        ],
+      },
+      {
+        key: "otherIncome",
+        label: "Otros ingresos netos",
+        terms: [["inc", "otherIncome", 1]],
+      },
+      ...wcLine,
+    ],
+    investing: [
+      {
+        key: "capex",
+        label: "Compra neta de activo fijo (Δ activo fijo neto + depreciación)",
+        terms: [
+          ["grp", "fixed", -1],
+          ["inc", "depreciation", -1],
+        ],
+      },
+      {
+        key: "investments",
+        label: "Inversiones temporales (− Δ)",
+        terms: [["acc", "investments", -1]],
+      },
+      {
+        key: "otherAsset",
+        label: "Otros activos no corrientes (− Δ)",
+        terms: [["grp", "otherAsset", -1]],
+      },
+    ],
+    financing: [
+      {
+        key: "shortDebt",
+        label: "Variación de deuda financiera a corto plazo",
+        terms: [["acc", "shortDebt", 1]],
+      },
+      {
+        key: "longDebt",
+        label: "Variación de pasivo no corriente",
+        terms: [["grp", "longDebt", 1]],
+      },
+      {
+        key: "capital",
+        label: "Aportes de capital (Δ capital social)",
+        terms: [["acc", "capital", 1]],
+      },
+      {
+        key: "dividends",
+        label:
+          "Dividendos y otros movimientos de patrimonio (Δ resto del patrimonio − utilidad neta)",
+        terms: [
+          ["grp", "equity", 1],
+          ["acc", "capital", -1],
+          ["inc", "net", -1],
+        ],
+      },
+    ],
+    indirect: [
+      { key: "net", label: "Utilidad neta", terms: [["inc", "net", 1]] },
+      {
+        key: "dep",
+        label: "+ Depreciación",
+        terms: [["inc", "depreciation", 1]],
+      },
+      {
+        key: "ar",
+        label: "− Variación de CxC",
+        terms: [["acc", "receivables", -1]],
+      },
+      {
+        key: "inv",
+        label: "− Variación de inventario",
+        terms: [["acc", "inventory", -1]],
+      },
+      {
+        key: "oca",
+        label: "− Variación de otros activos corrientes",
+        terms: [["acc", "otherCurrent", -1]],
+      },
+      {
+        key: "ap",
+        label: "+ Variación de proveedores",
+        terms: [["acc", "payables", 1]],
+      },
+      {
+        key: "tax",
+        label: "+ Variación de impuestos por pagar",
+        terms: [["acc", "taxPayable", 1]],
+      },
+      {
+        key: "ocl",
+        label: "+ Variación de otros pasivos corrientes",
+        terms: [["acc", "otherDebt", 1]],
+      },
+      ...wcLine,
+    ],
+  };
+}
+
+export function linkedFlowLines(period, previous, accounts) {
+  const s = statements(period, accounts),
+    p = statements(previous, accounts);
+  const defaults = new Set(defaultAccounts.map((a) => a.id));
+  const d = (id) => num(period.balance[id]) - num(previous.balance[id]);
+  const term = ([type, ref, sign]) =>
+    sign *
+    (type === "inc"
+      ? s[ref]
+      : type === "acc"
+        ? d(ref)
+        : type === "grp"
+          ? s[ref] - p[ref]
+          : sum(
+              accounts
+                .filter((a) => a.group === ref && !defaults.has(a.id))
+                .map((a) => d(a.id)),
+            ));
+  const spec = linkedFlowSpec(accounts);
+  return Object.fromEntries(
+    Object.entries(spec).map(([group, lines]) => [
+      group,
+      lines.map((l) => ({ ...l, value: sum(l.terms.map(term)) })),
+    ]),
+  );
 }
 
 export function plan(budget, period, accounts) {

@@ -223,6 +223,7 @@ test("Cash flow direct and indirect reconcile and entries stay with their period
   const d = createInitial(),
     prev = d.periods[0],
     p = blankPeriod("Final");
+  d.flow.linked = false; // movimientos registrados manualmente
   prev.balance = { cash: 25000 };
   p.balance = { cash: 52000, receivables: 6000 };
   p.income = {
@@ -328,4 +329,76 @@ test("Personal budget and stock calculations remain independent", () => {
   assert.equal(s.value, 200);
   assert.equal(s.low, true);
   assert.equal(stock({ initial: 0, incoming: 0, outgoing: 1 }).invalid, true);
+});
+
+test("Linked cash flow derives every activity from the statements and ties to the balance", () => {
+  const d = createInitial();
+  assert.equal(d.flow.linked, true);
+  d.accounts.push(
+    { id: "prepaid", label: "Anticipos", group: "current" },
+    { id: "bonds", label: "Bonos por pagar", group: "longDebt" },
+  );
+  const prev = d.periods[0],
+    p = blankPeriod("2025");
+  d.periods.push(p);
+  // Balance anterior cuadrado.
+  prev.balance = {
+    cash: 120000,
+    investments: 10000,
+    receivables: 85000,
+    inventory: 140000,
+    equipment: 400000,
+    accDep: 90000,
+    payables: 70000,
+    shortDebt: 30000,
+    taxPayable: 8000,
+    longDebt: 150000,
+    capital: 300000,
+    reserves: 20000,
+    retained: 87000,
+  };
+  p.income = {
+    sales: 1000000,
+    cogs: 600000,
+    opex: 190000,
+    depreciation: 30000,
+    otherIncome: -2000,
+    interest: 14000,
+    taxRate: 30,
+  };
+  const net = statements(p, d.accounts).net;
+  // Balance actual: utilidades retenidas = anteriores + utilidad − dividendos 20,000; efectivo como cifra de cuadre.
+  p.balance = {
+    investments: 12000,
+    receivables: 95000,
+    inventory: 160000,
+    otherCurrent: 3000,
+    prepaid: 4000,
+    equipment: 450000,
+    accDep: 120000,
+    payables: 80000,
+    shortDebt: 25000,
+    taxPayable: 9000,
+    otherDebt: 2000,
+    longDebt: 140000,
+    bonds: 50000,
+    capital: 320000,
+    reserves: 25000,
+    retained: 87000 - 5000 + net - 20000,
+  };
+  const s0 = statements(p, d.accounts);
+  p.balance.cash = s0.liabilities + s0.equity - s0.assets;
+  assert.ok(Math.abs(statements(p, d.accounts).difference) < 1e-9);
+
+  const f = cashFlow(d.flow, p, prev, d.accounts);
+  assert.equal(f.linked, true);
+  close(f.reconciliation, 0);
+  close(f.final, p.balance.cash);
+  close(f.indirectFinal, p.balance.cash);
+  close(f.lines.investing.find((l) => l.key === "capex").value, -50000);
+  close(f.lines.financing.find((l) => l.key === "dividends").value, -20000);
+  close(f.lines.financing.find((l) => l.key === "longDebt").value, 40000);
+  close(f.lines.operating.find((l) => l.key === "customWc").value, -4000);
+  // Sin período anterior, se usan los movimientos manuales.
+  assert.equal(cashFlow(d.flow, prev, undefined, d.accounts).linked, false);
 });

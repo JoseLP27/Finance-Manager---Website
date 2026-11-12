@@ -329,18 +329,25 @@ export function contextoEfe(data, period, previous) {
 
   const f = cashFlow(data.flow, period, previous, data.accounts);
   const settings = data.flow.settings?.[period.id] || {};
-  const conciliacion = [
-    ["Utilidad neta", s.net],
-    ["+ Depreciación", s.depreciation],
-    ["− Variación de CxC", -f.delta("receivables")],
-    ["− Variación de inventario", -f.delta("inventory")],
-    ["− Variación de otros activos corrientes", -f.delta("otherCurrent")],
-    ["+ Variación de proveedores", f.delta("payables")],
-    ["+ Variación de impuestos por pagar", f.delta("taxPayable")],
-    ["+ Variación de otros pasivos corrientes", f.delta("otherDebt")],
-    ["± Otros ajustes", num(settings.adjustments)],
-    ["Flujo operativo indirecto", f.indirect],
-  ].map(([concepto, valor]) => ({
+  const conciliacion = (
+    f.linked
+      ? [
+          ...f.lines.indirect.map((l) => [l.label, l.value]),
+          ["Flujo operativo indirecto", f.indirect],
+        ]
+      : [
+          ["Utilidad neta", s.net],
+          ["+ Depreciación", s.depreciation],
+          ["− Variación de CxC", -f.delta("receivables")],
+          ["− Variación de inventario", -f.delta("inventory")],
+          ["− Variación de otros activos corrientes", -f.delta("otherCurrent")],
+          ["+ Variación de proveedores", f.delta("payables")],
+          ["+ Variación de impuestos por pagar", f.delta("taxPayable")],
+          ["+ Variación de otros pasivos corrientes", f.delta("otherDebt")],
+          ["± Otros ajustes", num(settings.adjustments)],
+          ["Flujo operativo indirecto", f.indirect],
+        ]
+  ).map(([concepto, valor]) => ({
     concepto,
     valor: money(valor, data.currency),
   }));
@@ -361,7 +368,22 @@ export function contextoEfe(data, period, previous) {
   return {
     ...base(data, period),
     disponible: movimientos.length > 0 || Boolean(previous),
-    metodo: "Directo e indirecto",
+    metodo: f.linked
+      ? "Directo e indirecto, derivados del balance y el estado de resultados"
+      : "Directo e indirecto",
+    ...(f.linked && {
+      lineasDerivadas: ["operating", "investing", "financing"].flatMap((g) =>
+        f.lines[g].map((l) => ({
+          actividad: {
+            operating: "Operación",
+            investing: "Inversión",
+            financing: "Financiamiento",
+          }[g],
+          concepto: l.label,
+          importe: money(l.value, data.currency),
+        })),
+      ),
+    }),
     saldoInicial: money(f.initial, data.currency),
     actividades: {
       operacionDirecta: money(f.operating, data.currency),

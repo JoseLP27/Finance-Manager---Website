@@ -120,6 +120,7 @@ export function validateData(data) {
     !obj(data.flow) ||
     !list(data.flow.entries) ||
     !obj(data.flow.settings) ||
+    (data.flow.linked !== undefined && typeof data.flow.linked !== "boolean") ||
     !unique(data.flow.entries)
   )
     fail();
